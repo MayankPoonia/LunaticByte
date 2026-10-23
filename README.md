@@ -53,17 +53,6 @@ Open http://localhost:8080.
 
 Stop with `docker compose down` (data is kept in volumes) or `docker compose down -v` (also deletes the database).
 
-## Data pack
-
-The official case-study files live in `./data` (committed to the repository):
-
-```
-data/case_01_customers_V1.0.csv            data/case_01_transactions_history_V1.0.csv
-data/case_01_cards_V1.0.csv                data/case_01_batch_transactions_sample_V1.0.csv
-data/case_01_merchants_V1.0.csv            data/case_01_batch_sample_expected_alerts_V1.0.csv
-data/case_01_mcc_codes_V1.0.csv            data/case_01_batch_transactions_eval_V1.0.csv
-data/case_01_cities_V1.0.csv               data/case_01_labelled_transactions_V1.0.csv
-data/case_01_country_risk_V1.0.csv         data/case_01_rules_config_V1.0.json
 ```
 
 Files are found by pattern (`case_01_<name>_*.csv`), so a different version suffix is fine. The application never
