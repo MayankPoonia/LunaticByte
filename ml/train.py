@@ -153,8 +153,27 @@ def explain_disparity(df, dim, segment):
     return [f"{c}: mean {a:,.2f} in {segment} vs {b:,.2f} elsewhere" for _, c, a, b in diffs[:3]]
 
 
+def file_sha256(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def main():
     path, synthetic = find_labelled()
+    dataset_sha = file_sha256(path)
+    if "--if-needed" in sys.argv:
+        try:
+            with open(os.path.join(ARTIFACTS, "metadata.json")) as f:
+                current = json.load(f)
+            if current.get("dataset_sha256") == dataset_sha and os.path.exists(os.path.join(ARTIFACTS, "model.json")):
+                print(f"model {current['model_version']} is up to date for {os.path.basename(path)}; skipping training")
+                return
+        except (OSError, ValueError):
+            pass
     print(f"loading {path}{' (SYNTHETIC)' if synthetic else ''}")
     df = load(path)
     np.random.seed(SEED)
@@ -264,6 +283,7 @@ def main():
     version = f"xgb-{trained_at:%Y%m%d%H%M}-{digest}"
     meta = {
         "model_version": version, "trained_at": trained_at.isoformat(), "dataset": os.path.basename(path), "synthetic_data": synthetic,
+        "dataset_sha256": dataset_sha,
         "rows": {"total": len(df), "train": len(train), "fit": len(fit_part), "validation": len(val_part), "test": len(test)},
         "fraud_rate": {"train": float(train["is_fraud"].mean()), "test": float(test["is_fraud"].mean())},
         "split": "train txn_ts < 2026-01-01T00:00+05:30, test on or after", "seed": SEED, "features": FEATURES, "vocab": vocab,

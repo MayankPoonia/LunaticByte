@@ -19,7 +19,7 @@ async function start() {
       log.info(r.seeded ? 'database seeded' : 'database already seeded', { data_dir: r.dir, synthetic: r.synthetic });
       break;
     } catch (err) {
-      if (attempt >= 30) throw err;
+      if (attempt >= 90) throw err; // ~3 minutes: the model container may still be generating data
       log.warn('database not ready, retrying', { attempt, error: err.message });
       await new Promise((r) => setTimeout(r, 2000));
     }

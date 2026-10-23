@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+.git
+devdata
+data
+output
+ml/artifacts
+**/__pycache__

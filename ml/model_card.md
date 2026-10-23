@@ -12,7 +12,7 @@ Scores each card transaction with `fraud_score` (0 to 1) in the real-time author
 
 ## Model
 
-- Version `xgb-202610230836-ff867552`, XGBoost gradient-boosted trees (max depth 4, learning rate 0.05, early stopping at iteration 121), seed 42.
+- Version `xgb-202610230910-ff867552`, XGBoost gradient-boosted trees (max depth 4, learning rate 0.05, early stopping at iteration 121), seed 42.
 - Class imbalance handled with `scale_pos_weight` = sqrt(neg/pos) (chosen on validation PR-AUC).
 - Explanations: exact TreeSHAP contributions from XGBoost (`pred_contribs`); the three largest positive contributions are shown to analysts in plain language.
 - Served by the Flask service in `ml/app.py`; the model is loaded once at start-up. The backend gives it 150 ms; slower or failed calls fall back to the rules-only decision with `model_status = MODEL_UNAVAILABLE`.

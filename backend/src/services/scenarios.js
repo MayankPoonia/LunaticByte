@@ -45,7 +45,10 @@ async function listScenarios() {
   }
   // Maker-checker demo: a BLOCKED transaction above INR 1,00,000 at a blacklisted merchant (R3 creates an alert).
   const blacklisted = (await query("SELECT merchant_id, mcc, city, country FROM merchants WHERE merchant_risk = 'BLACKLISTED' AND country = 'IN' ORDER BY merchant_id LIMIT 1")).rows[0];
-  const card = (await query("SELECT card_id FROM cards WHERE card_status = 'ACTIVE' AND card_id = ANY($1) ORDER BY card_id LIMIT 1", [['C1008', 'C1001']])).rows[0];
+  // A card not used by the other scenarios, active, with a daily limit above the amount (so only R3 fires).
+  const card = (await query(
+    `SELECT card_id FROM cards WHERE card_status = 'ACTIVE' AND expiry_date > now() AND daily_limit >= 120000 AND home_country = 'IN'
+       AND card_id NOT BETWEEN 'C1001' AND 'C1010' ORDER BY card_id LIMIT 1`)).rows[0];
   if (blacklisted && card && refs.cities.has(blacklisted.city)) {
     out.push({ id: 'high-value-alert', title: 'High-value alert for maker-checker', expected: 'BLOCK (MERCHANT_BLACKLISTED), HIGH alert above INR 1,00,000',
       description: 'Creates an alert on an INR 1,20,000 transaction. Closing it as FALSE_POSITIVE needs a manager (worked example 12).',
