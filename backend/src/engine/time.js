@@ -33,11 +33,4 @@ function daysBetween(a, b) {
   return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / DAY);
 }
 
-// "04:59" -> 299, 4 -> 240
-function toMinuteOfDay(value) {
-  if (typeof value === 'number') return value * 60;
-  const [h, m] = String(value).split(':').map(Number);
-  return h * 60 + (m || 0);
-}
-
-module.exports = { IST_OFFSET_MS, MINUTE, HOUR, DAY, istDate, istMinuteOfDay, istHour, toIstIso, toIstIsoMs, daysBetween, toMinuteOfDay };
+module.exports = { IST_OFFSET_MS, MINUTE, HOUR, DAY, istDate, istMinuteOfDay, istHour, toIstIso, toIstIsoMs, daysBetween };

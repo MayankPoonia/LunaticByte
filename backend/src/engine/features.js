@@ -33,7 +33,10 @@ function computeFeatures(txn, card, priors, refs, cfg) {
   // avg_amount_30d: mean of prior APPROVED amounts in the look-back window; null when none
   const avgFrom = t - cfg.avg_amount_lookback_days * DAY;
   const last30 = approved.filter((p) => p.ts >= avgFrom);
-  const avg_amount_30d = last30.length ? last30.reduce((s, p) => s + toPaise(p.amount), 0) / last30.length / 100 : null;
+  const sum30Paise = last30.reduce((s, p) => s + toPaise(p.amount), 0);
+  const avg_amount_30d = last30.length ? sum30Paise / last30.length / 100 : null;
+  // For output: round half up from the exact paise sum (binary floats would turn 3756.615 into 3756.61).
+  const avg_amount_30d_2dp = last30.length ? Math.round(sum30Paise / last30.length) / 100 : null;
 
   // speed_kmph: only for a physical transaction with a prior APPROVED physical one in the look-back window
   let speed_kmph = null;
@@ -45,7 +48,7 @@ function computeFeatures(txn, card, priors, refs, cfg) {
     const c1 = last && refs.cities.get(last.txn_city);
     const c2 = refs.cities.get(txn.txn_city);
     if (last && c1 && c2) {
-      const distance = haversineKm(c1.lat, c1.lon, c2.lat, c2.lon);
+      const distance = haversineKm(c1.lat, c1.lon, c2.lat, c2.lon, cfg.earth_radius_km);
       const hours = (t - last.ts) / HOUR;
       if (distance === 0) speed_kmph = 0;
       else if (hours === 0) speed_kmph = 99999.99;
@@ -74,7 +77,7 @@ function computeFeatures(txn, card, priors, refs, cfg) {
     local_hour: istHour(t),
     is_international: txn.txn_country !== card.home_country ? 1 : 0,
     country_risk_high: refs.countryRisk.get(txn.txn_country) === 'HIGH' ? 1 : 0,
-    distance_from_home_km: home && here ? haversineKm(home.lat, home.lon, here.lat, here.lon) : null,
+    distance_from_home_km: home && here ? haversineKm(home.lat, home.lon, here.lat, here.lon, cfg.earth_radius_km) : null,
     velocity_10m,
     velocity_24h,
     amount_to_avg30_ratio: avg_amount_30d ? amount / avg_amount_30d : null,
@@ -87,6 +90,7 @@ function computeFeatures(txn, card, priors, refs, cfg) {
     velocity_24h,
     approved_today: approvedTodayPaise / 100,
     avg_amount_30d,
+    avg_amount_30d_2dp,
     speed_kmph,
     speed_reference,
     new_merchant,

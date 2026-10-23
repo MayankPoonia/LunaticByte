@@ -1,7 +1,7 @@
 """
 Train and evaluate the FraudShield XGBoost fraud-risk model (case study AI-1, AI-3, AI-4).
 
-    python train.py                 # uses DATA_DIR, ../data or ../devdata (synthetic fallback)
+    python train.py                 # uses DATA_DIR or ../data
 
 Steps
   1. Load and validate the labelled file (schema, label values, class balance).
@@ -42,12 +42,11 @@ REQUIRED = ["txn_id", "txn_ts", "is_fraud"] + FEATURES + ["city_tier"]
 
 
 def find_labelled():
-    dirs = [os.environ.get("DATA_DIR"), os.path.join(ROOT, "data"), os.path.join(ROOT, "devdata")]
-    for d in [x for x in dirs if x]:
-        hits = sorted(glob.glob(os.path.join(d, "case_01_labelled_transactions*.csv")))
-        if hits:
-            return hits[0], os.path.exists(os.path.join(d, "SYNTHETIC_DATA_README.txt"))
-    raise SystemExit("labelled file not found: copy case_01_labelled_transactions_V1.0.csv into data/")
+    d = os.environ.get("DATA_DIR") or os.path.join(ROOT, "data")
+    hits = sorted(glob.glob(os.path.join(d, "case_01_labelled_transactions*.csv")))
+    if not hits:
+        raise SystemExit(f"labelled file not found: copy case_01_labelled_transactions_V1.0.csv into {d}")
+    return hits[0]
 
 
 def load(path):
@@ -163,18 +162,9 @@ def file_sha256(path):
 
 
 def main():
-    path, synthetic = find_labelled()
+    path = find_labelled()
     dataset_sha = file_sha256(path)
-    if "--if-needed" in sys.argv:
-        try:
-            with open(os.path.join(ARTIFACTS, "metadata.json")) as f:
-                current = json.load(f)
-            if current.get("dataset_sha256") == dataset_sha and os.path.exists(os.path.join(ARTIFACTS, "model.json")):
-                print(f"model {current['model_version']} is up to date for {os.path.basename(path)}; skipping training")
-                return
-        except (OSError, ValueError):
-            pass
-    print(f"loading {path}{' (SYNTHETIC)' if synthetic else ''}")
+    print(f"training from scratch on {path}")
     df = load(path)
     np.random.seed(SEED)
 
@@ -196,8 +186,11 @@ def main():
         print(f"  scale_pos_weight {name}: validation PR-AUC {tried[-1][0]:.4f}")
     best_val, spw_name, spw, model = max(tried, key=lambda x: x[0])
 
-    p_val = model.predict_proba(X_val)[:, 1]
-    p_test = model.predict_proba(X_test)[:, 1]
+    # Keep only the trees up to the early-stopping best iteration. This exact booster is saved and served,
+    # and every metric below is computed with it, so the reports describe the production model.
+    booster = model.get_booster()[: model.best_iteration + 1]
+    p_val = booster.predict(xgb.DMatrix(X_val, missing=np.nan))
+    p_test = booster.predict(xgb.DMatrix(X_test, missing=np.nan))
     amount_val = pd.to_numeric(val_part["amount"]).to_numpy()
     amount_test = pd.to_numeric(test["amount"]).to_numpy()
 
@@ -244,7 +237,6 @@ def main():
                                     "drivers": explain_disparity(test, dim, worst["segment"])})
 
     # Inference latency of the exact path used by the Flask service (single row + SHAP contributions).
-    booster = model.get_booster()
     booster.set_param({"nthread": 1})
     lat = []
     for i in range(300):
@@ -282,7 +274,7 @@ def main():
     trained_at = datetime.now(timezone.utc)
     version = f"xgb-{trained_at:%Y%m%d%H%M}-{digest}"
     meta = {
-        "model_version": version, "trained_at": trained_at.isoformat(), "dataset": os.path.basename(path), "synthetic_data": synthetic,
+        "model_version": version, "trained_at": trained_at.isoformat(), "dataset": os.path.basename(path),
         "dataset_sha256": dataset_sha,
         "rows": {"total": len(df), "train": len(train), "fit": len(fit_part), "validation": len(val_part), "test": len(test)},
         "fraud_rate": {"train": float(train["is_fraud"].mean()), "test": float(test["is_fraud"].mean())},

@@ -3,7 +3,7 @@
 //   1. R1, R2 are hard stops: if either triggers, evaluation stops (score and derived fields empty).
 //   2. R3-R6 are blocking rules: if any triggers, decision BLOCK, score 100, R7-R13 not evaluated.
 //   3. R7-R12 are soft (STEP_UP) rules with points; R13 blocks when 3+ of them trigger.
-const { istMinuteOfDay, toMinuteOfDay } = require('./time');
+const { istMinuteOfDay } = require('./time');
 
 const fmt = (n) => (n === null || n === undefined ? 'n/a' : Number(n).toFixed(2));
 
@@ -43,8 +43,8 @@ function evaluateRules(txn, card, merchant, features, refs, cfg) {
   // ---- soft rules R7-R12
   const p = cfg.points;
   check('R7', 'HIGH_VELOCITY',
-    features.velocity_10m >= cfg.velocity_step_up_count && features.velocity_10m < cfg.velocity_burst_count,
-    `velocity_10m ${features.velocity_10m} (step-up from ${cfg.velocity_step_up_count})`, p.R7);
+    features.velocity_10m >= cfg.velocity_step_up_count && features.velocity_10m <= cfg.velocity_step_up_max,
+    `velocity_10m ${features.velocity_10m} (step-up at ${cfg.velocity_step_up_count} to ${cfg.velocity_step_up_max})`, p.R7);
 
   const avg = features.avg_amount_30d;
   const spike = avg !== null
@@ -62,7 +62,8 @@ function evaluateRules(txn, card, merchant, features, refs, cfg) {
     `mcc ${txn.mcc}; high-risk list ${cfg.high_risk_mcc_list.join(', ')}`, p.R10);
 
   const minute = istMinuteOfDay(txn.ts);
-  const oddHour = minute >= toMinuteOfDay(cfg.odd_hour_start) && minute <= toMinuteOfDay(cfg.odd_hour_end);
+  // Odd hours are whole IST hours, inclusive: start 0 and end 4 mean 00:00 to 04:59.
+  const oddHour = minute >= cfg.odd_hour_start * 60 && minute <= cfg.odd_hour_end * 60 + 59;
   check('R11', 'ODD_HOUR_HIGH_VALUE', oddHour && amount >= cfg.odd_hour_min_amount,
     `local time ${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')} IST, amount ${fmt(amount)}`, p.R11);
 

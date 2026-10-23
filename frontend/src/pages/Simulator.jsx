@@ -1,11 +1,10 @@
-// Transaction simulator: acts as the simulated card gateway. Every request goes through the real
-// backend authorisation service. Sequential mode waits for each response before sending the next.
+// Transaction simulator (standalone page at /simulator): acts as the simulated card gateway, outside
+// the analyst / manager console. Every request goes through the real backend authorisation service.
+// Sequential mode waits for each response before sending the next.
 // Round-trip latency is measured in the browser with performance.now(); server processing time and
 // model latency come from the API response and are shown separately.
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { api, errorText } from '../lib/api';
-import { useSession } from '../lib/session';
 import { money, num } from '../lib/format';
 import { DecisionBadge, ErrorBanner, ModelBadge, Notice, PageHeader, ReasonCodes, ScoreValue, Section, StatusBadge, TableWrap } from '../components/ui';
 
@@ -48,8 +47,50 @@ function useTimer() {
   };
 }
 
+function Shell({ children }) {
+  return (
+    <div className="min-h-screen">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
+          <div>
+            <div className="text-sm font-semibold text-brand-700">FraudShield</div>
+            <div className="text-xs text-slate-500">Transaction simulator - simulated card gateway</div>
+          </div>
+          <a href="/" target="_blank" rel="noreferrer" className="btn-secondary btn-sm">Open operations console</a>
+        </div>
+      </header>
+      <main className="mx-auto w-full max-w-7xl px-6 py-8">{children}</main>
+    </div>
+  );
+}
+
+// Expanded result row: plain-language model factors and the feature values used.
+function Details({ data }) {
+  const f = data.features || {};
+  return (
+    <div className="sticky left-0 grid max-w-3xl gap-6 bg-slate-50 px-4 py-4 text-sm sm:grid-cols-2">
+      <div>
+        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Top model factors</div>
+        {data.top_factors && data.top_factors.length ? (
+          <ul className="space-y-1">{data.top_factors.map((t) => <li key={t.feature}><span className={t.direction === 'lowers' ? 'text-emerald-700' : 'text-red-700'}>{t.direction === 'lowers' ? 'lowers' : 'raises'}</span> {t.text}</li>)}</ul>
+        ) : <p className="text-slate-500">AI score unavailable</p>}
+      </div>
+      <div>
+        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Features used</div>
+        <ul className="space-y-1">
+          <li>velocity_10m: {f.velocity_10m}</li>
+          <li>approved_today: {money(f.approved_today)}</li>
+          <li>avg_amount_30d: {f.avg_amount_30d === null ? 'empty (no history)' : money(f.avg_amount_30d)}</li>
+          <li>speed_kmph: {f.speed_kmph === null ? 'empty' : num(f.speed_kmph)}</li>
+          <li>new merchant: {f.new_merchant ? 'yes' : 'no'}</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export default function Simulator() {
-  const { user } = useSession();
+  const [expanded, setExpanded] = useState(() => new Set());
   const [options, setOptions] = useState(null);
   const [scenarios, setScenarios] = useState([]);
   const [form, setForm] = useState(EMPTY);
@@ -157,18 +198,6 @@ export default function Simulator() {
     setRunning(false);
   }
 
-  async function resetDemo() {
-    const typed = window.prompt('This reloads the data pack and deletes all simulated transactions, alerts and audit entries. Type RESET to continue.');
-    if (typed !== 'RESET') return;
-    try {
-      await api('/demo/reset', { method: 'POST', body: { confirm: 'RESET' } });
-      setResults([]);
-      window.location.reload();
-    } catch (err) {
-      setError(errorText(err));
-    }
-  }
-
   const okRows = results.filter((r) => r.ok);
   const trips = results.map((r) => r.roundTrip);
   const summary = {
@@ -177,14 +206,20 @@ export default function Simulator() {
     server: okRows.length ? okRows.reduce((a, r) => a + Number(r.data.processing_ms || 0), 0) / okRows.length : null,
   };
 
-  if (!options) return <div><PageHeader title="Transaction simulator" /><ErrorBanner error={error} />{!error && <p className="muted">Loading reference data...</p>}</div>;
+  const toggle = (n) => setExpanded((prev) => {
+    const next = new Set(prev);
+    if (next.has(n)) next.delete(n);
+    else next.add(n);
+    return next;
+  });
+
+  if (!options) return <Shell><PageHeader title="Transaction simulator" /><ErrorBanner error={error} />{!error && <p className="muted">Loading reference data...</p>}</Shell>;
 
   return (
-    <div>
+    <Shell>
       <PageHeader
         title="Transaction simulator"
-        subtitle="Send synthetic transactions through the real authorisation service. Decisions, rules and scores come from the backend."
-        actions={user.role === 'MANAGER' && <button type="button" className="btn-secondary" onClick={resetDemo}>Reset demo data</button>}
+        subtitle="Send transactions through the real authorisation service, as the card network would. Decisions, rules and scores come from the backend."
       />
       <ErrorBanner error={error} />
 
@@ -316,9 +351,10 @@ export default function Simulator() {
               <thead><tr><th>#</th><th>Transaction</th><th>Request</th><th>Decision</th><th>Status</th><th>Reason codes</th><th>Rule score</th><th>Fraud score</th><th>Model</th><th>velocity_10m</th><th>Server</th><th>Round trip</th><th /></tr></thead>
               <tbody>
                 {results.map((r) => (r.ok ? (
-                  <tr key={r.n}>
+                  <Fragment key={r.n}>
+                  <tr>
                     <td>{r.n}</td>
-                    <td><Link className="mono text-brand-700 hover:underline" to={`/transactions/${r.data.txn_id}`}>{r.data.txn_id}</Link><div className="text-xs text-slate-500">{r.label}</div></td>
+                    <td><a className="mono text-brand-700 hover:underline" href={`/transactions/${r.data.txn_id}`} target="_blank" rel="noreferrer" title="Open in the operations console">{r.data.txn_id}</a><div className="text-xs text-slate-500">{r.label}</div></td>
                     <td><span className="text-xs">HTTP {r.http}{r.data.duplicate ? ' (replay)' : ''}</span>{r.servedBy && <div className="mono text-slate-400" title="Backend replica that served this request">{r.servedBy.slice(0, 12)}</div>}</td>
                     <td><DecisionBadge value={r.data.decision} />{r.data.rules_decision !== r.data.decision && <div className="text-xs text-slate-500">rules: {r.data.rules_decision}</div>}</td>
                     <td><StatusBadge value={r.data.status} /></td>
@@ -329,8 +365,15 @@ export default function Simulator() {
                     <td>{r.data.features ? r.data.features.velocity_10m : '-'}</td>
                     <td>{num(r.data.processing_ms, 1)} ms{r.data.model_latency_ms !== null && <div className="text-xs text-slate-500">model {num(r.data.model_latency_ms, 1)} ms</div>}</td>
                     <td className="font-mono">{r.roundTrip.toFixed(0)} ms</td>
-                    <td>{r.data.alert_id && <Link className="text-xs text-brand-700 hover:underline" to={`/alerts/${r.data.alert_id}`}>Alert {r.data.alert_id}</Link>}</td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <button type="button" className="btn-secondary btn-sm" aria-expanded={expanded.has(r.n)} onClick={() => toggle(r.n)}>{expanded.has(r.n) ? 'Hide' : 'Details'}</button>
+                        {r.data.alert_id && <a className="text-xs text-brand-700 hover:underline" href={`/alerts/${r.data.alert_id}`} target="_blank" rel="noreferrer">Alert {r.data.alert_id}</a>}
+                      </div>
+                    </td>
                   </tr>
+                  {expanded.has(r.n) && <tr><td colSpan={13} className="p-0"><Details data={r.data} /></td></tr>}
+                  </Fragment>
                 ) : (
                   <tr key={r.n} className="bg-red-50/50">
                     <td>{r.n}</td>
@@ -345,6 +388,6 @@ export default function Simulator() {
           </TableWrap>
         )}
       </Section>
-    </div>
+    </Shell>
   );
 }

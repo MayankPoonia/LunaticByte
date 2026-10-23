@@ -38,9 +38,10 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* Standalone simulated card gateway, outside the analyst / manager console */}
+      <Route path="/simulator" element={<Simulator />} />
       <Route element={<Protected><Layout /></Protected>}>
         <Route path="/overview" element={<Protected roles={STAFF}><Overview /></Protected>} />
-        <Route path="/simulator" element={<Protected roles={STAFF}><Simulator /></Protected>} />
         <Route path="/transactions" element={<Protected roles={STAFF}><Transactions /></Protected>} />
         <Route path="/transactions/:id" element={<Protected roles={STAFF}><TransactionDetail /></Protected>} />
         <Route path="/alerts" element={<Protected roles={STAFF}><Alerts /></Protected>} />

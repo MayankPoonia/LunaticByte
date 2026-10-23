@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { api, errorText } from '../lib/api';
 import { useApi } from '../lib/session';
 import { dateTime, num, pct } from '../lib/format';
-import { ErrorBanner, KeyValue, Loading, Notice, PageHeader, ScoreValue, Section, Stat, TableWrap } from '../components/ui';
+import { ErrorBanner, KeyValue, Loading, PageHeader, ScoreValue, Section, Stat, TableWrap } from '../components/ui';
 
 export default function Model() {
   const info = useApi('/model/info');
@@ -39,7 +39,6 @@ export default function Model() {
   return (
     <div>
       <PageHeader title="Model" subtitle={`XGBoost ${m.model_version}, trained ${dateTime(m.trained_at)}`} />
-      {m.synthetic_data && <Notice tone="amber">This model was trained on the synthetic stand-in dataset. Metrics only show that the pipeline works; retrain with the official data pack.</Notice>}
       <ErrorBanner error={error} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="PR-AUC (test)" value={num(x.pr_auc, 4)} hint={`baseline ${num(b.pr_auc, 4)} (${num(x.pr_auc / b.pr_auc, 2)}x)`} />

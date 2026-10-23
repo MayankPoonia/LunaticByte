@@ -112,7 +112,7 @@ test('requests without a token return 401', async () => {
 test('a cardholder calling analyst or manager APIs receives 403 (FR-1)', async () => {
   const token = await h.login(app.url, 'holder_c1001');
   for (const [m, p] of [['GET', '/api/v1/alerts'], ['GET', '/api/v1/transactions'], ['GET', '/api/v1/dashboard/summary'], ['POST', '/api/v1/alerts/1/claim'],
-    ['GET', '/api/v1/audit/TRANSACTION/T1'], ['PUT', '/api/v1/config/velocity_burst_count'], ['POST', '/api/v1/simulator/transactions']]) {
+    ['GET', '/api/v1/audit/TRANSACTION/T1'], ['PUT', '/api/v1/config/velocity_burst_count']]) {
     assert.equal((await h.call(app.url, m, p, { token, body: m === 'GET' ? undefined : {} })).status, 403, `${m} ${p}`);
   }
 });
@@ -140,6 +140,19 @@ test("changing the id in the URL does not expose another cardholder's data", asy
   assert.equal((await h.call(app.url, 'POST', '/api/v1/me/cards/C2018/block', { token })).status, 404);
   const list = await h.call(app.url, 'GET', '/api/v1/me/transactions', { token });
   assert.ok(list.body.transactions.every((t) => t.card_id === 'C2017'));
+});
+
+test('in demo mode the standalone simulator works without a login and uses the same authorisation service', async () => {
+  const r = await h.call(app.url, 'POST', '/api/v1/simulator/transactions', { body: { card_id: 'C2019', txn_ts: 'now', amount: '500.00', currency: 'INR',
+    merchant_id: 'M00450', mcc: '5411', channel: 'POS', txn_city: 'Mumbai', txn_country: 'IN' } });
+  assert.equal(r.status, 201);
+  assert.match(r.body.txn_id, /^T\d{9}$/);
+  assert.equal(r.body.decision, 'APPROVE');
+  const audit = await h.db.query("SELECT actor, role FROM audit_events WHERE entity = 'TRANSACTION' AND entity_id = $1", [r.body.txn_id]);
+  assert.deepEqual(audit.rows[0], { actor: 'simulator', role: 'SIMULATOR' });
+  // an invalid token is still rejected, and the gateway endpoint itself still needs the API key
+  assert.equal((await h.call(app.url, 'GET', '/api/v1/simulator/options', { token: 'bad' })).status, 401);
+  assert.equal((await h.call(app.url, 'POST', '/api/v1/authorisations', { body: h.txn() })).status, 401);
 });
 
 test('full card numbers are never stored or returned; only the last 4 digits', async () => {

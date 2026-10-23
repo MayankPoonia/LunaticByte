@@ -16,10 +16,10 @@ async function start() {
   for (let attempt = 1; ; attempt++) {
     try {
       const r = await seedAll({ reset: false });
-      log.info(r.seeded ? 'database seeded' : 'database already seeded', { data_dir: r.dir, synthetic: r.synthetic });
+      log.info(r.seeded ? 'database seeded' : 'database already seeded', { data_dir: r.dir });
       break;
     } catch (err) {
-      if (attempt >= 90) throw err; // ~3 minutes: the model container may still be generating data
+      if (attempt >= 30) throw err;
       log.warn('database not ready, retrying', { attempt, error: err.message });
       await new Promise((r) => setTimeout(r, 2000));
     }

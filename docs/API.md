@@ -78,8 +78,8 @@ Response (201 new, 200 idempotent replay with header `Idempotent-Replay: true`):
 | `POST /api/v1/auth/login` | public | Sign in |
 | `GET /api/v1/auth/me` | any user | Current user |
 | `GET /api/v1/auth/demo-accounts` | public, DEMO_MODE | Accounts for the login selector |
-| `GET /api/v1/simulator/options`, `/scenarios`, `/next-id` | analyst, manager | Simulator reference data, demo scenarios, fresh txn_id |
-| `POST /api/v1/simulator/transactions` | analyst, manager | Same authorisation service; `txn_id` optional, `txn_ts` may be `"now"` |
+| `GET /api/v1/simulator/options`, `/scenarios`, `/next-id` | anyone in DEMO_MODE, otherwise analyst or manager | Simulator reference data, demo scenarios, fresh txn_id |
+| `POST /api/v1/simulator/transactions` | anyone in DEMO_MODE, otherwise analyst or manager | Same authorisation service; `txn_id` optional, `txn_ts` may be `"now"`; audited as actor `simulator` when no user is signed in |
 | `GET /api/v1/transactions`, `/transactions/{id}` | analyst, manager | List; detail with rule evaluation, features, model, step-up, alert, audit |
 | `GET /api/v1/cards/{id}` | analyst, manager | Masked card and recent transactions |
 | `GET /api/v1/alerts`, `/alerts/{id}` | analyst, manager | Queue (priority, then SLA) and investigation view |

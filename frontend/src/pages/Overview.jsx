@@ -2,7 +2,8 @@
 // refresh automatically when transaction or alert events arrive.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useApi, useLiveRefresh } from '../lib/session';
+import { api, errorText } from '../lib/api';
+import { useApi, useLiveRefresh, useSession } from '../lib/session';
 import { dateTime, money, ms, pct } from '../lib/format';
 import { DecisionBadge, Empty, ErrorBanner, Loading, ModelBadge, PageHeader, ReasonCodes, Section, Stat, StatusBadge, TableWrap } from '../components/ui';
 
@@ -18,6 +19,8 @@ function Bar({ label, value, total, tone }) {
 }
 
 export default function Overview() {
+  const { user } = useSession();
+  const [resetError, setResetError] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const qs = new URLSearchParams({ ...(from ? { from } : {}), ...(to ? { to } : {}) }).toString();
@@ -28,6 +31,19 @@ export default function Overview() {
     summary.reload();
     recent.reload();
   });
+
+  async function resetDemo() {
+    const typed = window.prompt('This reloads the data pack and deletes all simulated transactions, alerts and audit entries. Type RESET to continue.');
+    if (typed !== 'RESET') return;
+    setResetError('');
+    try {
+      await api('/demo/reset', { method: 'POST', body: { confirm: 'RESET' } });
+      summary.reload();
+      recent.reload();
+    } catch (err) {
+      setResetError(errorText(err));
+    }
+  }
 
   const s = summary.data;
   const total = s ? s.transactions.total : 0;
@@ -42,14 +58,10 @@ export default function Overview() {
             <div><label className="label" htmlFor="from">From</label><input id="from" type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
             <div><label className="label" htmlFor="to">To</label><input id="to" type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} /></div>
             {(from || to) && <button type="button" className="btn-secondary" onClick={() => { setFrom(''); setTo(''); }}>Clear dates</button>}
+            {user.role === 'MANAGER' && <button type="button" className="btn-secondary" onClick={resetDemo}>Reset demo data</button>}
           </div>
         )} />
-      <ErrorBanner error={summary.error} onRetry={summary.reload} />
-      {system.data && system.data.data && system.data.data.synthetic && (
-        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Running on the synthetic stand-in data pack (devdata). Copy the official files into data/ and reset to use them.
-        </div>
-      )}
+      <ErrorBanner error={resetError || summary.error} onRetry={summary.reload} />
       {!s ? <Loading /> : (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -95,7 +107,7 @@ export default function Overview() {
       )}
 
       <Section className="mt-6" title="Latest decisions" actions={<Link to="/transactions" className="text-sm text-brand-700 hover:underline">View all</Link>}>
-        {!recent.data ? <Loading /> : recent.data.transactions.length === 0 ? <Empty title="No transactions yet">Use the transaction simulator to send one.</Empty> : (
+        {!recent.data ? <Loading /> : recent.data.transactions.length === 0 ? <Empty title="No transactions yet">Open the transaction simulator (top right) to send one.</Empty> : (
           <TableWrap>
             <table className="table">
               <thead><tr><th>Transaction</th><th>Processed</th><th>Card</th><th>Amount</th><th>Merchant</th><th>Decision</th><th>Status</th><th>Reasons</th><th>Server time</th></tr></thead>
