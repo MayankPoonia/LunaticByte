@@ -147,3 +147,13 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# FraudShield
+devdata/
+ml/artifacts/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+output/*.csv
+!output/.gitkeep
