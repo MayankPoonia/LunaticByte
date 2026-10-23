@@ -1,0 +1,104 @@
+# FraudShield: one command starts everything.
+#   docker compose up --build        -> http://localhost:8080
+# Only the gateway publishes a port; all other services talk over the internal network.
+name: fraudshield
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgres://${POSTGRES_USER:-fraudshield}:${POSTGRES_PASSWORD:-fraudshield}@postgres:5432/${POSTGRES_DB:-fraudshield}
+  REDIS_URL: redis://redis:6379
+  ML_URL: http://ml:5000
+  GATEWAY_API_KEY: ${GATEWAY_API_KEY:-dev-gateway-key-change-me}
+  JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+  CARD_HASH_SALT: ${CARD_HASH_SALT:-dev-card-salt-change-me}
+  DEMO_MODE: ${DEMO_MODE:-true}
+  DEMO_PASSWORD: ${DEMO_PASSWORD:-Demo@123}
+  ENABLE_TEST_RUNNER: ${ENABLE_TEST_RUNNER:-true}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+services:
+  gateway:
+    image: nginx:1.27.3-alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment: *backend-env
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-2}
+    volumes:
+      - ./data:/app/data:ro
+      - ./devdata:/app/devdata:ro
+      - ./output:/app/output
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ml:
+        condition: service_started
+    restart: unless-stopped
+
+  ml:
+    build:
+      context: .
+      dockerfile: ml/Dockerfile
+    environment:
+      OUTPUT_DIR: /app/output
+    volumes:
+      - ./ml:/app/ml            # code, artifacts/ and the generated reports live in the repository
+      - ./data:/app/data:ro
+      - ./devdata:/app/devdata
+      - ./output:/app/output
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fraudshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fraudshield}
+      POSTGRES_DB: ${POSTGRES_DB:-fraudshield}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fraudshield} -d ${POSTGRES_DB:-fraudshield}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4.1-alpine
+    # Append-only file so the event stream survives a restart (PostgreSQL stays the source of truth).
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
