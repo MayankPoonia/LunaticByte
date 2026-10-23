@@ -11,6 +11,7 @@ Real-time card transaction fraud detection, step-up verification and alert manag
 
 ## 1. Goals and constraints
 
+
 | Goal | How the design meets it |
 |---|---|
 | Decide every transaction in real time with explainable reasons | Synchronous authorisation API; deterministic rules R1-R13 with reason codes; per-rule evaluation detail stored with the decision |
