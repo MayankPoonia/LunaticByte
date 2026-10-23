@@ -12,7 +12,7 @@
     "batch": "node src/cli/batch.js",
     "replay": "node src/cli/replay.js",
     "perf": "node src/cli/perf.js",
-    "test": "node --test --test-concurrency=1 tests/",
+    "test": "node src/cli/run-tests.js",
     "test:category": "node src/cli/run-tests.js"
   },
   "engines": {
