@@ -12,7 +12,7 @@ and action is audited.
 - Progress, assumptions and handoff: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
 - API reference: Swagger UI at http://localhost:8080/api/docs, summary in [docs/API.md](docs/API.md)
 - Tests: [docs/TESTING.md](docs/TESTING.md)
-- Model: [ml/model_card.md](ml/model_card.md), [ml/evaluation_report.md](ml/evaluation_report.md)
+- Model: [ml/ML_FLOW.md](ml/ML_FLOW.md) (how the model works, step by step), [ml/model_card.md](ml/model_card.md), [ml/evaluation_report.md](ml/evaluation_report.md)
 
 ## Stack
 
