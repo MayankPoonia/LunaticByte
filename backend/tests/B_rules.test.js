@@ -212,6 +212,30 @@ describe('soft rules R7-R12 and R13', () => {
     const r = run(t, card(), [...baseHistory(), ...recent(3)], { ...cfg, velocity_burst_count: 3 });
     assert.deepEqual(r.reason_codes, ['VELOCITY_BURST']);
   });
+  test('the official rules-config format maps onto every parameter (points by reason code, odd hours as whole hours)', () => {
+    const { normaliseConfigJson } = require('../src/services/ruleConfig');
+    const official = { velocity_window_minutes: 10, velocity_burst_count: 6, velocity_stepup_min: 2, velocity_stepup_max: 5, avg_lookback_days: 30,
+      amount_spike_multiplier: 5, amount_spike_min_amount: 10000, amount_spike_no_history_amount: 50000, impossible_travel_kmph: 700,
+      travel_lookback_hours: 6, earth_radius_km: 6371.0, odd_hour_start: 1, odd_hour_end: 3, odd_hour_min_amount: 20000,
+      new_merchant_lookback_days: 90, new_merchant_min_amount: 25000, high_risk_mcc: ['4829'], multiple_red_flags_count: 3,
+      points: { HIGH_VELOCITY: 11, AMOUNT_SPIKE: 12, HIGH_RISK_GEO: 13, HIGH_RISK_MCC: 14, ODD_HOUR_HIGH_VALUE: 15, NEW_MERCHANT_HIGH_VALUE: 16 },
+      step_up_expiry_minutes: 15, false_positive_manager_limit: 90000, alert_high_amount: 40000, sla_minutes: { HIGH: 20, MEDIUM: 200 },
+      ai_step_up_threshold: 0.6, ai_block_threshold: 0.8, model_timeout_ms: 120 };
+    const { values, sources } = normaliseConfigJson(official);
+    assert.deepEqual(values.points, { R7: 11, R8: 12, R9: 13, R10: 14, R11: 15, R12: 16 });
+    assert.deepEqual([values.velocity_step_up_count, values.velocity_step_up_max, values.velocity_burst_count], [2, 5, 6]);
+    assert.deepEqual([values.odd_hour_start, values.odd_hour_end], [1, 3]);
+    assert.deepEqual([values.impossible_travel_speed_kmph, values.maker_checker_limit, values.alert_high_priority_amount], [700, 90000, 40000]);
+    assert.deepEqual([values.sla_high_minutes, values.sla_medium_minutes, values.model_timeout_ms], [20, 200, 120]);
+    assert.deepEqual(Object.keys(sources).filter((k) => sources[k] === 'default').sort(), ['ai_enabled', 'domestic_country', 'otp_max_attempts', 'rule_risk_score_cap']);
+  });
+
+  test('R7 upper bound comes from velocity_step_up_max', () => {
+    const t = tx({ amount: '1200.00', channel: 'ECOM', merchant_id: 'M00451', mcc: '5732' });
+    const r = run(t, card(), [...baseHistory(), ...recent(4)], { ...cfg, velocity_step_up_max: 3, velocity_burst_count: 6 });
+    assert.equal(r.decision, 'APPROVE');
+  });
+
   test('configuration drives lists and points: MCC list and R10 points', () => {
     const t = tx({ merchant_id: 'M00462', mcc: '5812', txn_city: 'Jaipur', amount: '500.00' });
     const r = run(t, card(), baseHistory(), { ...cfg, high_risk_mcc_list: ['5812'], points: { ...cfg.points, R10: 40 } });

@@ -4,11 +4,11 @@ import { useSession } from '../lib/session';
 
 const NAV = {
   ANALYST: [
-    ['/overview', 'Overview'], ['/simulator', 'Transaction simulator'], ['/transactions', 'Transactions'], ['/alerts', 'Alert queue'],
+    ['/overview', 'Overview'], ['/transactions', 'Transactions'], ['/alerts', 'Alert queue'],
     ['/audit', 'Audit trail'], ['/rules', 'Rule configuration'], ['/model', 'Model'],
   ],
   MANAGER: [
-    ['/overview', 'Fraud dashboard'], ['/simulator', 'Transaction simulator'], ['/transactions', 'Transactions'], ['/alerts', 'Alert queue'],
+    ['/overview', 'Fraud dashboard'], ['/transactions', 'Transactions'], ['/alerts', 'Alert queue'],
     ['/approvals', 'Approvals'], ['/audit', 'Audit trail'], ['/rules', 'Rule configuration'], ['/model', 'Model'], ['/tests', 'Test runner'],
   ],
   CARDHOLDER: [['/my/verifications', 'Verify payments'], ['/my/transactions', 'My transactions'], ['/my/cards', 'My cards'], ['/my/messages', 'Messages']],
@@ -48,6 +48,7 @@ export default function Layout() {
             {live === 'live' ? 'Live updates connected' : 'Reconnecting to live updates'}
           </div>
           <div className="flex items-center gap-4">
+            {user.role !== 'CARDHOLDER' && <a href="/simulator" target="_blank" rel="noreferrer" className="btn-secondary btn-sm">Open transaction simulator</a>}
             <div className="text-right">
               <div className="text-sm font-medium text-slate-900">{user.display_name}</div>
               <div className="text-xs text-slate-500">{ROLE_LABEL[user.role]} ({user.username})</div>

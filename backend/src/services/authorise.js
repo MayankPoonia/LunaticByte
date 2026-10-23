@@ -156,7 +156,7 @@ async function authorise(txn, { source = 'API', mode = 'live', actor = { id: 'ga
         features: {
           velocity_10m: features.velocity_10m,
           approved_today: round2(features.approved_today),
-          avg_amount_30d: round2(features.avg_amount_30d),
+          avg_amount_30d: features.avg_amount_30d_2dp,
           speed_kmph: round2(features.speed_kmph),
           new_merchant: features.new_merchant,
         },

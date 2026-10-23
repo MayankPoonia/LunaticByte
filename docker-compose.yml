@@ -47,7 +47,6 @@ services:
       replicas: ${BACKEND_REPLICAS:-2}
     volumes:
       - ./data:/app/data:ro
-      - ./devdata:/app/devdata:ro
       - ./output:/app/output
     depends_on:
       postgres:
@@ -55,10 +54,11 @@ services:
       redis:
         condition: service_healthy
       ml:
-        condition: service_started
+        condition: service_healthy   # wait for the model trained at start-up
     restart: unless-stopped
 
   ml:
+    # Trains from scratch on every start (about 30-60 s), then serves /predict.
     build:
       context: .
       dockerfile: ml/Dockerfile
@@ -67,7 +67,6 @@ services:
     volumes:
       - ./ml:/app/ml            # code, artifacts/ and the generated reports live in the repository
       - ./data:/app/data:ro
-      - ./devdata:/app/devdata
       - ./output:/app/output
     restart: unless-stopped
 

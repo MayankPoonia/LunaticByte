@@ -87,6 +87,9 @@ export default function Login() {
             </p>
           )}
         </form>
+        <p className="mt-6 text-center text-sm text-slate-500">
+          Simulated card gateway: <a href="/simulator" className="font-medium text-brand-700 hover:underline">open the transaction simulator</a>
+        </p>
       </div>
     </div>
   );

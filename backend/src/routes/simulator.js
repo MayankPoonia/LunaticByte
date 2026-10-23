@@ -1,17 +1,39 @@
-// Transaction simulator for staff (acts as the simulated card gateway from the browser).
-// It uses exactly the same validation and authorisation service as POST /api/v1/authorisations;
-// only the authentication differs (staff JWT instead of the gateway key, which never reaches the browser).
+// Transaction simulator (the simulated card gateway on its own page, /simulator in the frontend).
+// It uses exactly the same validation and authorisation service as POST /api/v1/authorisations; the
+// gateway key never reaches the browser. Access: in DEMO_MODE anyone can use it (a signed-in user is
+// recorded as the actor); outside demo mode it requires an analyst or manager token.
 const express = require('express');
 const { query } = require('../db');
 const { refs } = require('../data/refs');
-const { requireUser, requireRole } = require('../middleware/auth');
+const env = require('../env');
+const { verifyToken, STAFF } = require('../middleware/auth');
 const { validateTransaction, CHANNELS } = require('../validation');
 const { authorise } = require('../services/authorise');
 const { listScenarios } = require('../services/scenarios');
 const { toIstIsoMs } = require('../engine/time');
 
 const router = express.Router();
-router.use('/simulator', requireUser, requireRole('ANALYST', 'MANAGER'));
+function simulatorAccess(req, res, next) {
+  const header = req.get('authorization') || '';
+  let user = null;
+  if (header.startsWith('Bearer ')) {
+    try {
+      user = verifyToken(header.slice(7));
+    } catch {
+      return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Invalid or expired token' });
+    }
+  }
+  if (env.demoMode) {
+    req.actor = user ? { id: user.user_id, role: user.role } : { id: 'simulator', role: 'SIMULATOR' };
+    return next();
+  }
+  if (!user) return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Bearer token required' });
+  if (!STAFF.includes(user.role)) return res.status(403).json({ error: 'FORBIDDEN', message: 'Requires role ANALYST or MANAGER' });
+  req.actor = { id: user.user_id, role: user.role };
+  return next();
+}
+
+router.use('/simulator', simulatorAccess);
 
 async function nextTxnId() {
   const { rows } = await query("SELECT 'T' || nextval('simulated_txn_seq')::text AS id");
@@ -42,7 +64,7 @@ router.post('/simulator/transactions', async (req, res) => {
   if (!body.txn_id) body.txn_id = await nextTxnId();
   if (!body.txn_ts || body.txn_ts === 'now') body.txn_ts = toIstIsoMs(Date.now());
   const txn = validateTransaction(body);
-  const { response, duplicate } = await authorise(txn, { source: 'SIMULATOR', actor: { id: req.user.user_id, role: req.user.role } });
+  const { response, duplicate } = await authorise(txn, { source: 'SIMULATOR', actor: req.actor });
   res.set('Idempotent-Replay', duplicate ? 'true' : 'false');
   res.status(duplicate ? 200 : 201).json({ ...response, duplicate, request: { ...body } });
 });

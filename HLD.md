@@ -45,7 +45,7 @@ flowchart LR
 | Component | Technology | Responsibility |
 |---|---|---|
 | Gateway | Nginx 1.27 | Single public entry point (port 8080). Routes `/api/*` and `/socket.io/*` round robin to the backend replicas, everything else to the frontend. Retries an idempotent failure on the next replica. |
-| Frontend | React 18, Tailwind CSS, Vite | Role-based screens: dashboard, simulator, transactions, alert queue and investigation, approvals, audit, rule configuration, model, test runner, cardholder verification. Uses REST for commands and Socket.IO for notifications. |
+| Frontend | React 18, Tailwind CSS, Vite | Operations console with role-based screens (dashboard, transactions, alert queue and investigation, approvals, audit, rule configuration, model, test runner, cardholder verification) and a standalone transaction simulator at `/simulator` that plays the card network. REST for commands, Socket.IO for notifications. |
 | API (backend) | Node.js 22, Express 5 | Authentication (JWT for people, API key for the gateway), validation, authorisation service, rules engine, step-up, alerts, maker-checker, audit, dashboard, configuration, batch/replay/perf CLIs, Swagger UI. Stateless; runs as 2 replicas. |
 | Model service | Python 3.13, Flask, gunicorn, XGBoost | Loads the trained model once per worker; `/predict` returns `fraud_score`, top 3 SHAP factors in plain language, model version, latency. `train.py` trains and evaluates offline. |
 | PostgreSQL 16 | Relational store | Authoritative state: cards, merchants, transactions with features and rule results, step-ups, alerts, configuration and versions, audit, outbox, notifications, model feedback. |
@@ -247,12 +247,14 @@ requirement is 5 s).
 | Explanations | Exact TreeSHAP contributions (`pred_contribs`), top 3 positive factors rendered in plain language |
 | Evaluation | PR-AUC (primary), ROC-AUC, precision / recall / confusion matrix at 0.70, 0.90 and the cost-optimal threshold, rules-only baseline (AI-1 definition), Isolation Forest as second detector (AI-4), expected cost (missed fraud = amount, false alarm = INR 150), friction by city_tier and card_type (AI-3), inference latency |
 | Outputs | `ml/evaluation_report.md`, `output/evaluation_report.md`, `ml/model_card.md`, rules-missed fraud examples |
-| Serving | gunicorn, 2 workers x 8 threads; model loaded at start; retrained only when the labelled file's SHA-256 changes |
+| Serving | gunicorn, 2 workers x 8 threads; the container retrains from scratch on every start, then loads the model once per worker. The saved booster is cut at the early-stopping iteration, so the served model is exactly the evaluated one. |
+| Results (official file, test period) | XGBoost PR-AUC 0.663 vs baseline 0.133 (5.0x), ROC-AUC 0.929; at 0.70: precision 0.94, recall 0.32; Isolation Forest ROC-AUC 0.880; segment friction ratios 0.83 (city_tier and card_type); 10 labelled frauds approved by the rules but scored >= 0.70 by the model. The cost analysis favours a much lower step-up threshold (0.07); the case-study thresholds 0.70 / 0.90 are kept as configuration and the trade-off is documented in the model card. |
 
 ## 10. Security
 
-- Gateway API key from an environment variable, compared in constant time; it never reaches the browser (the simulator
-  uses a staff JWT on a separate endpoint that calls the same authorisation service).
+- Gateway API key from an environment variable, compared in constant time; it never reaches the browser. The standalone
+  simulator calls a separate endpoint that runs the same authorisation service; in `DEMO_MODE` it needs no login (it plays
+  the card network for the demo), otherwise it requires an analyst or manager token.
 - JWT bearer tokens for people; the role comes from the database row at login, never from the client. Every route checks
   the role on the server; cardholder routes filter by the `customer_id` inside the token, so changing an id in the URL
   returns 404.
@@ -282,7 +284,8 @@ flowchart LR
   (`/health`, model loaded), gateway (`/health`).
 - Start-up: backends wait for healthy Postgres and Redis, then migrate and seed under a PostgreSQL advisory lock (so two
   replicas never seed twice). The gateway starts after the backends are healthy, so Nginx resolves every replica.
-- The model container generates synthetic data if no data pack is mounted, trains if needed, then serves.
+- The model container trains from scratch on every start (about 30-60 s) and only then becomes healthy; the backends wait
+  for it (`depends_on: service_healthy`), so the first transaction is scored by the freshly trained model.
 - Scaling path: `BACKEND_REPLICAS=n docker compose up -d` and `docker compose restart gateway` (Nginx resolves the
   replicas when it starts). Stateless replicas, per-replica consumer groups and `SKIP LOCKED` workers already support it.
 

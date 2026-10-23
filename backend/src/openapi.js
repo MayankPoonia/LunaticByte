@@ -5,6 +5,7 @@ const err = (description) => json(ref('Error'), description);
 const body = (schema, required = true) => ({ required, content: { 'application/json': { schema } } });
 const idParam = (name, description) => ({ name, in: 'path', required: true, schema: { type: 'string' }, description });
 const staff = [{ bearerAuth: [] }];
+const simulatorAuth = [{}, { bearerAuth: [] }]; // open in DEMO_MODE, staff token otherwise
 const STD = { 401: err('Missing or invalid credentials'), 403: err('Authenticated but the role is not allowed') };
 
 const transactionInput = {
@@ -131,13 +132,13 @@ module.exports = {
     },
     '/api/v1/auth/me': { get: { tags: ['Auth'], summary: 'Current user from the token', security: staff, responses: { 200: json({ type: 'object' }), 401: STD[401] } } },
     '/api/v1/auth/demo-accounts': { get: { tags: ['Auth'], summary: 'Seeded demo accounts for the login role selector (DEMO_MODE only)', responses: { 200: json({ type: 'object' }) } } },
-    '/api/v1/simulator/options': { get: { tags: ['Simulator'], summary: 'Cards, merchants, cities and channels for the simulator form', security: staff, responses: { 200: json({ type: 'object' }), ...STD } } },
-    '/api/v1/simulator/scenarios': { get: { tags: ['Simulator'], summary: 'Predefined demo scenarios (from the sample batch file)', security: staff, responses: { 200: json({ type: 'object' }), ...STD } } },
-    '/api/v1/simulator/next-id': { get: { tags: ['Simulator'], summary: 'Reserve a fresh transaction id', security: staff, responses: { 200: json({ type: 'object', properties: { txn_id: { type: 'string' } } }), ...STD } } },
+    '/api/v1/simulator/options': { get: { tags: ['Simulator'], summary: 'Cards, merchants, cities and channels for the simulator form', security: simulatorAuth, responses: { 200: json({ type: 'object' }), ...STD } } },
+    '/api/v1/simulator/scenarios': { get: { tags: ['Simulator'], summary: 'Predefined demo scenarios (from the sample batch file)', security: simulatorAuth, responses: { 200: json({ type: 'object' }), ...STD } } },
+    '/api/v1/simulator/next-id': { get: { tags: ['Simulator'], summary: 'Reserve a fresh transaction id', security: simulatorAuth, responses: { 200: json({ type: 'object', properties: { txn_id: { type: 'string' } } }), ...STD } } },
     '/api/v1/simulator/transactions': {
       post: {
-        tags: ['Simulator'], summary: 'Submit a transaction through the same authorisation service (staff JWT instead of gateway key)', security: staff,
-        description: 'Same fields as /authorisations; txn_id is optional (a sequence id is assigned) and txn_ts may be "now".',
+        tags: ['Simulator'], summary: 'Submit a transaction through the same authorisation service (no gateway key in the browser)', security: simulatorAuth,
+        description: 'Same fields as /authorisations; txn_id is optional (a sequence id is assigned) and txn_ts may be "now". Open in DEMO_MODE (standalone /simulator page); otherwise needs an analyst or manager token.',
         requestBody: body({ ...transactionInput, required: ['card_id', 'amount', 'currency', 'merchant_id', 'mcc', 'channel', 'txn_city', 'txn_country'] }),
         responses: { 201: json(ref('AuthorisationResponse')), 200: json(ref('AuthorisationResponse'), 'Idempotent replay'), 409: err('Idempotency conflict'), 422: err('Invalid fields'), ...STD },
       },

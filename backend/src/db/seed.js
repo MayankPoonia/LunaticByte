@@ -49,13 +49,13 @@ const DYNAMIC_TABLES = ['outbox_events', 'notifications', 'model_feedback', 'aud
   'config_versions', 'rule_config', 'users', 'cards', 'customers', 'merchants', 'mcc_codes', 'country_risk', 'cities'];
 
 async function seedAll({ reset = false } = {}) {
-  const { dir, synthetic } = resolveDataDir();
+  const { dir } = resolveDataDir();
   const started = Date.now();
   return withTx(async (client) => {
     await client.query('SELECT pg_advisory_xact_lock($1)', [SEED_LOCK]);
     await migrate(client);
     const { rows } = await client.query('SELECT count(*)::int AS n FROM cards');
-    if (rows[0].n > 0 && !reset) return { seeded: false, dir, synthetic };
+    if (rows[0].n > 0 && !reset) return { seeded: false, dir };
 
     await client.query(`TRUNCATE ${DYNAMIC_TABLES.join(', ')} RESTART IDENTITY CASCADE`);
     await client.query('ALTER SEQUENCE simulated_txn_seq RESTART WITH 700000001');
@@ -127,12 +127,11 @@ async function seedAll({ reset = false } = {}) {
 
     const fromDefault = Object.keys(sources).filter((k) => sources[k] === 'default');
     const summary = {
-      seeded: true, dir, synthetic, ms: Date.now() - started,
+      seeded: true, dir, ms: Date.now() - started,
       counts: { cities: cities.length, merchants: merchants.length, customers: customers.length, cards: cards.length, history: history.length },
       config_defaults_used: fromDefault,
     };
     log.info('seed complete', summary);
-    if (synthetic) log.warn('USING SYNTHETIC STAND-IN DATA from devdata/. Copy the official files into data/ and run a reset.');
     return summary;
   });
 }

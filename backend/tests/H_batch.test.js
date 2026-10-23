@@ -1,7 +1,7 @@
 // H. Batch command and worked examples.
 //   1. Worked examples 1-10 replayed through the batch command on the test fixtures; every expected
 //      value comes from the case-study document (section 6.4).
-//   2. The installed data pack's sample batch (data/ or devdata/) processed against its own freshly
+//   2. The installed data pack's sample batch (data/) processed against its own freshly
 //      loaded history must reproduce every expected_* column and the expected alerts file.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -56,7 +56,7 @@ test('worked examples 1-10 through the batch command match the case study exactl
 });
 
 test("the installed data pack's sample batch reproduces all expected columns and alerts", async (t) => {
-  const { dir, synthetic } = resolveDataDir();
+  const { dir } = resolveDataDir();
   const file = dataFile('batch_transactions_sample', dir);
   if (!file) {
     t.skip('no case_01_batch_transactions_sample file in the data pack');
@@ -69,7 +69,7 @@ test("the installed data pack's sample batch reproduces all expected columns and
   const r = await runBatch({ file, outDir: out, reset: false, log: () => {} });
   const mismatches = verify(r.results, dataFile('batch_sample_expected_alerts', dir), out);
   await stub.close();
-  t.diagnostic(`${readCsv(file).length} rows from ${path.relative(h.ROOT, file)}${synthetic ? ' (synthetic stand-in)' : ''}, ${r.processing_ms} ms`);
+  t.diagnostic(`${readCsv(file).length} rows from ${path.relative(h.ROOT, file)}, ${r.processing_ms} ms`);
   assert.equal(r.rejected, 0);
   assert.deepEqual(mismatches.slice(0, 20), []);
 });
