@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "velocity_window_minutes": 10,
+  "velocity_burst_count": 5,
+  "velocity_stepup_min": 3,
+  "velocity_stepup_max": 4,
+  "avg_lookback_days": 30,
+  "amount_spike_multiplier": 5,
+  "amount_spike_min_amount": 10000,
+  "amount_spike_no_history_amount": 50000,
+  "impossible_travel_kmph": 800,
+  "travel_lookback_hours": 6,
+  "earth_radius_km": 6371.0,
+  "odd_hour_start": 0,
+  "odd_hour_end": 4,
+  "odd_hour_min_amount": 20000,
+  "new_merchant_lookback_days": 90,
+  "new_merchant_min_amount": 25000,
+  "high_risk_mcc": [
+    "4829",
+    "5967",
+    "6051",
+    "7995"
+  ],
+  "multiple_red_flags_count": 3,
+  "points": {
+    "HIGH_VELOCITY": 25,
+    "AMOUNT_SPIKE": 30,
+    "HIGH_RISK_GEO": 25,
+    "HIGH_RISK_MCC": 15,
+    "ODD_HOUR_HIGH_VALUE": 15,
+    "NEW_MERCHANT_HIGH_VALUE": 20
+  },
+  "step_up_expiry_minutes": 15,
+  "false_positive_manager_limit": 100000,
+  "alert_high_amount": 50000,
+  "sla_minutes": {
+    "HIGH": 30,
+    "MEDIUM": 240
+  },
+  "ai_step_up_threshold": 0.7,
+  "ai_block_threshold": 0.9,
+  "model_timeout_ms": 150
+}

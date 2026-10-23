@@ -1,0 +1,18 @@
+mcc,mcc_description,mcc_category,high_risk
+5411,Grocery stores and supermarkets,GROCERY,N
+5812,Restaurants,DINING,N
+5541,Fuel stations,FUEL,N
+5732,Electronics stores,ELECTRONICS,N
+5311,Department stores,RETAIL,N
+5912,Pharmacies,PHARMACY,N
+4111,Local transport,TRANSPORT,N
+4814,Telecom services,TELECOM,N
+5944,Jewellery stores,JEWELLERY,N
+6011,ATM cash withdrawal,CASH,N
+4722,Travel agencies,TRAVEL,N
+7011,Hotels,HOTEL,N
+5999,Miscellaneous retail,RETAIL,N
+4829,Money transfer,MONEY_TRANSFER,Y
+5967,Direct marketing,DIRECT_MARKETING,Y
+6051,Quasi-cash / crypto purchase,QUASI_CASH,Y
+7995,Gambling / betting,GAMBLING,Y
