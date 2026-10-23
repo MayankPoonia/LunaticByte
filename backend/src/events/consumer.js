@@ -7,6 +7,8 @@ const log = require('../logger');
 
 function createConsumer(redis, deliver, { streamKey = env.streamKey, group = `ws-${env.instanceId}`, consumer = env.instanceId } = {}) {
   let stopped = false;
+  let markReady;
+  const ready = new Promise((r) => (markReady = r));
   const seen = new Set();
   const seenOrder = [];
   const latencies = [];
@@ -54,6 +56,7 @@ function createConsumer(redis, deliver, { streamKey = env.streamKey, group = `ws
           continue;
         }
         await ensureGroup();
+        markReady(true);
         const res = await redis.xreadgroup('GROUP', group, consumer, 'COUNT', 100, 'BLOCK', 1000, 'STREAMS', streamKey, pendingFirst ? '0' : '>');
         const entries = res ? res[0][1] : [];
         if (pendingFirst && entries.length === 0) pendingFirst = false;
@@ -68,8 +71,11 @@ function createConsumer(redis, deliver, { streamKey = env.streamKey, group = `ws
   }
 
   return {
+    // Resolves once the consumer group exists (or after 3 s if Redis is unavailable), so the
+    // server only accepts traffic when events can be delivered.
     start() {
       loop();
+      return Promise.race([ready, new Promise((r) => setTimeout(() => r(false), 3000))]);
     },
     stop() {
       stopped = true;

@@ -8,7 +8,7 @@ const { requireUser, requireRole } = require('../middleware/auth');
 const { validateTransaction, CHANNELS } = require('../validation');
 const { authorise } = require('../services/authorise');
 const { listScenarios } = require('../services/scenarios');
-const { toIstIso } = require('../engine/time');
+const { toIstIsoMs } = require('../engine/time');
 
 const router = express.Router();
 router.use('/simulator', requireUser, requireRole('ANALYST', 'MANAGER'));
@@ -40,7 +40,7 @@ router.get('/simulator/next-id', async (req, res) => res.json({ txn_id: await ne
 router.post('/simulator/transactions', async (req, res) => {
   const body = { ...(req.body || {}) };
   if (!body.txn_id) body.txn_id = await nextTxnId();
-  if (!body.txn_ts || body.txn_ts === 'now') body.txn_ts = toIstIso(Date.now());
+  if (!body.txn_ts || body.txn_ts === 'now') body.txn_ts = toIstIsoMs(Date.now());
   const txn = validateTransaction(body);
   const { response, duplicate } = await authorise(txn, { source: 'SIMULATOR', actor: { id: req.user.user_id, role: req.user.role } });
   res.set('Idempotent-Replay', duplicate ? 'true' : 'false');

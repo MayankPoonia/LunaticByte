@@ -122,6 +122,11 @@ async function authorise(txn, { source = 'API', mode = 'live', actor = { id: 'ga
           rules.rule_risk_score, JSON.stringify(features), JSON.stringify(rules.rules), model.fraud_score,
           JSON.stringify(model.top_factors), model.model_status, model.model_version, model.latency_ms, cfg.version, hash, processedAt],
       );
+      const fraudScore4 = model.fraud_score === null ? null : Number(model.fraud_score.toFixed(4));
+      await audit(client, { entity: 'TRANSACTION', entityId: txn.txn_id, actor: actor.id, role: actor.role, action: 'AUTHORISATION_DECISION',
+        from: 'RECEIVED', to: status, comment: effective.reason_codes.join('|') || null,
+        details: { decision: effective.decision, rules_decision: rules.decision, rule_risk_score: rules.rule_risk_score,
+          fraud_score: fraudScore4, model_status: model.model_status, model_version: model.model_version, config_version: cfg.version, source } });
 
       let stepUp = null;
       if (status === 'STEP_UP_PENDING' && mode === 'live') stepUp = await createStepUp(client, txn, card, cfg, merchant);
@@ -142,7 +147,7 @@ async function authorise(txn, { source = 'API', mode = 'live', actor = { id: 'ga
         status,
         alert_id: alert ? Number(alert.alert_id) : null,
         processed_at: toIstIso(processedAt.getTime()),
-        fraud_score: model.fraud_score === null ? null : Number(model.fraud_score.toFixed(4)),
+        fraud_score: fraudScore4,
         top_factors: model.top_factors,
         model_status: model.model_status,
         model_version: model.model_version,
@@ -161,10 +166,6 @@ async function authorise(txn, { source = 'API', mode = 'live', actor = { id: 'ga
       await client.query('UPDATE transactions SET response = $2, processing_ms = $3 WHERE txn_id = $1',
         [txn.txn_id, JSON.stringify(response), response.processing_ms]);
 
-      await audit(client, { entity: 'TRANSACTION', entityId: txn.txn_id, actor: actor.id, role: actor.role, action: 'AUTHORISATION_DECISION',
-        from: 'RECEIVED', to: status, comment: effective.reason_codes.join('|') || null,
-        details: { decision: effective.decision, rules_decision: rules.decision, rule_risk_score: rules.rule_risk_score,
-          fraud_score: response.fraud_score, model_status: model.model_status, model_version: model.model_version, config_version: cfg.version, source } });
       await addEvent(client, 'transaction_decided', txn.txn_id, {
         txn_id: txn.txn_id, card_id: card.card_id, card_last4: card.last4, amount: txn.amount, channel: txn.channel, txn_city: txn.txn_city,
         decision: effective.decision, status, reason_codes: effective.reason_codes, fraud_score: response.fraud_score,

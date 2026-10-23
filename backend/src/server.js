@@ -36,7 +36,7 @@ async function start() {
   if (env.workers) {
     createPublisher(redis).start();
     consumer = createConsumer(redisReader, deliver);
-    consumer.start();
+    await consumer.start();
     setInterval(() => stepUps.expireDue().catch((err) => log.warn('step-up expiry failed', { error: err.message })), env.stepUpSweepMs);
   }
 

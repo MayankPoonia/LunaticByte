@@ -301,10 +301,10 @@ new_merchant = (np_rng.random(n) < 0.3).astype(int)
 card_age = np_rng.integers(5, 3000, n)
 hr_mcc = np.isin(mcc_codes[mcc_idx], ["4829", "5967", "6051", "7995"]).astype(int)
 
-logit = (-5.65 + 0.9 * np.minimum(velocity_10m, 6) + 0.35 * np.log1p(np.nan_to_num(ratio, nan=1.0))
-         + 1.1 * ((local_hour <= 4) & (amount > 15000)) + 1.0 * hr_mcc + 1.3 * country_risk_high
-         + 0.8 * (new_merchant & (channel == "ECOM")) + 0.6 * (merchant_risk == "HIGH") + 2.0 * (merchant_risk == "BLACKLISTED")
-         + 0.5 * (card_age < 60) + 0.25 * np.log1p(distance) / 3 + 0.3 * (card_type == "CREDIT"))
+logit = (-7.0 + 1.5 * np.minimum(velocity_10m, 6) + 0.9 * np.log1p(np.nan_to_num(ratio, nan=1.0))
+         + 2.2 * ((local_hour <= 4) & (amount > 15000)) + 1.7 * hr_mcc + 2.2 * country_risk_high
+         + 1.5 * (new_merchant & (channel == "ECOM")) + 1.1 * (merchant_risk == "HIGH") + 3.0 * (merchant_risk == "BLACKLISTED")
+         + 0.9 * (card_age < 60) + 0.25 * np.log1p(distance) / 3 + 0.3 * (card_type == "CREDIT"))
 p = 1 / (1 + np.exp(-logit))
 is_fraud = (np_rng.random(n) < p).astype(int)
 

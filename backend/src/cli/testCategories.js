@@ -16,9 +16,28 @@ const CATEGORIES = [
   { id: 'H', name: 'Batch and worked examples', file: 'tests/H_batch.test.js' },
 ];
 
-function runCategory(id) {
+// Test runs share one test database, so only one may run at a time across all backend replicas.
+async function withRunLock(fn) {
+  const { Client } = require('pg');
+  const env = require('../env');
+  const client = new Client({ connectionString: env.databaseUrl });
+  await client.connect();
+  try {
+    const { rows } = await client.query('SELECT pg_try_advisory_lock(724002) AS ok');
+    if (!rows[0].ok) throw Object.assign(new Error('another test run is in progress'), { status: 409 });
+    return await fn();
+  } finally {
+    await client.end();
+  }
+}
+
+async function runCategory(id) {
   const cat = CATEGORIES.find((c) => c.id === String(id || '').toUpperCase());
-  if (!cat) return Promise.reject(Object.assign(new Error(`unknown category ${id}`), { status: 422 }));
+  if (!cat) throw Object.assign(new Error(`unknown category ${id}`), { status: 422 });
+  return withRunLock(() => spawnCategory(cat));
+}
+
+function spawnCategory(cat) {
   return new Promise((resolve) => {
     const started = Date.now();
     const child = spawn(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=./tests/reporter.mjs', cat.file], {
